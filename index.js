@@ -1,85 +1,63 @@
+import { UnmeshedClient } from '@unmeshed/sdk';
 
-import "dotenv/config";
-import { ArithmeticOperation } from "./workers/ArithmeticWorker.js";
-import {UnmeshedClient} from '@unmeshed/sdk'
-
-
-console.log(UnmeshedClient)
-
-const BASE_URL = process.env.UNMESHED_BASE_URL;
-const PORT = process.env.UNMESHED_PORT;
-const ClIENT_ID = process.env.UNMESHED_CLIENT_ID;
-const AUTH_TOKEN = process.env.UNMESHED_AUTH_TOKEN;
-
-UnmeshedClient.initialize({
-  baseUrl: BASE_URL,
-  port: PORT,
-  clientId: ClIENT_ID,
-  authToken: AUTH_TOKEN,
+const unmeshedClient = new UnmeshedClient({
+    baseUrl: 'http://localhost',
+    port: 8080,
+    authToken: 'iBPNno0dOpJ74bBy64l5',
+    clientId: '0d368ea2-7ed7-4fc6-8506-d5d5115fce55'
 });
 
+const workerFunction = async (input) => {
+    return {
+        ...input || {},
+        "ranAt": new Date() // Add the current timestamp to the output 🕒
+    };
+};
+
+const worker = {
+    worker: workerFunction,
+    namespace: 'default',
+    name: 'test-node-worker',
+    maxInProgress: 500
+};
+
+unmeshedClient.startPolling([worker]);
+
 const request = {
-  name: "sample-http",
-  namespace: "default",
-  input: {},
-  correlationId: "",
-  requestId: "",
-  version: 1,
-};
-const workers = [
-  {
-    worker: (input) => ArithmeticOperation(input),
-    namespace: "default",
-    name: "arithmetic_operation_worker",
-    maxInProgress: 10,
-  },
-];
-UnmeshedClient.pollForWorkers(workers);
-
-const processId = 28878569;
-const stepId = 28878571;
-const processIds = [34, 344];
-const clientId = "jdjfjf";
-const endpoint = "your-endpoint";
-const input = { key: "value" };
-const id = "12345";
-const apiCallType = ApiCallType.SYNC;
-
-const params = {
-  startTimeEpoch: 1673606400000,
-  endTimeEpoch: 1673692800000,
-  namespace: "default",
-  processTypes: [ProcessType.STANDARD],
-  triggerTypes: [ProcessTriggerType.MANUAL],
-  names: ["process1", "process2", "process3"],
-  processIds: [28883174, 28883162],
-  correlationIds: ["correlationId1", "correlationId2"],
-  requestIds: ["requestId1", "requestId2"],
-  statuses: [ProcessStatus.COMPLETED],
-  limit: 10,
-  offset: 0,
+    namespace: 'default',
+    name: 'testing',
+    version: null,
+    requestId: 'my-id-1',
+    correlationId: 'my-crid-1',
+    input: {
+        "mykey": "value",
+        "mykeyNumber": 100,
+        "mykeyBoolean": true
+    }
 };
 
-// UnmeshedClient.getStepData(stepId)
-//   .then((stepData) => {
-//     console.log("STEP_DATA", stepData);
-//   })
-//   .catch((error) => {
-//     console.error("Error fetching step data:", error.message);
-//   });
+const processData = await unmeshedClient.runProcessSync(request);
+console.log("Output: ", processData);
 
-// UnmeshedClient.rerun(processId, ClIENT_ID)
-//   .then((data) => {
-//     console.log("PROCESS_DATA", data);
-//   })
-//   .catch((error) => {
-//     console.error("Error fetching step data:", error.message);
-//   });
+const pd = await unmeshedClient.getProcessData(processData.processId, true);
+console.log("Output of process including steps ", pd);
 
-// UnmeshedClient.bulkTerminate(processIds)
-//   .then((data) => {
-//     console.log("PROCESS_DATA", data);
-//   })
-//   .catch((error) => {
-//     console.error("Error fetching step data:", error.message);
-//   });
+const pdWithoutSteps = await unmeshedClient.getProcessData(processData.processId, false);
+console.log("Output of process without steps ", pdWithoutSteps);
+
+const stepData = await unmeshedClient.getStepData(pd.steps[0].id);
+console.log("Output of the first step in process ", stepData);
+
+const processIds = [1, 2, 3];
+const reason = "Terminating due to policy changes";
+const bulkTerminateOutput = await unmeshedClient.bulkTerminate(processIds, reason);
+console.log("Output of the bulk terminate action ", bulkTerminateOutput);
+
+const bulkResumeOutput = await unmeshedClient.bulkResume(processIds);
+console.log("Output of the bulk resume action ", bulkResumeOutput);
+
+const bulkReviewedOutput = await unmeshedClient.bulkReviewed(processIds, reason);
+console.log("Output of the bulk reviewed action ", bulkReviewedOutput);
+
+const rerun = await unmeshedClient.reRun(processData.processId);
+console.log("Output of the rerun action ", rerun);
